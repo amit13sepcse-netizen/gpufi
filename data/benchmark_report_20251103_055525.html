@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PG-Strom CPU vs GPU Benchmark Results</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .header .timestamp {
+            margin-top: 15px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+        
+        .content {
+            padding: 40px;
+        }
+        
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+        }
+        
+        .card h3 {
+            color: #667eea;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        
+        .card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .card .unit {
+            font-size: 0.8em;
+            color: #666;
+            margin-left: 5px;
+        }
+        
+        .section-title {
+            font-size: 1.8em;
+            color: #333;
+            margin: 40px 0 20px 0;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .table-container {
+            overflow-x: auto;
+            margin: 20px 0;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        th {
+            padding: 18px;
+            text-align: left;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+        
+        td {
+            padding: 15px 18px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+        
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .dataset-header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        
+        .dataset-header td {
+            padding: 15px;
+            border: none;
+        }
+        
+        .status-excellent {
+            background: #10b981;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-good {
+            background: #3b82f6;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-similar {
+            background: #f59e0b;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .status-slower {
+            background: #ef4444;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            display: inline-block;
+        }
+        
+        .cpu-time {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        
+        .gpu-time {
+            color: #10b981;
+            font-weight: 600;
+        }
+        
+        .speedup {
+            color: #f59e0b;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+        
+        .chart-container {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .bar-chart {
+            margin: 20px 0;
+        }
+        
+        .bar-item {
+            margin: 15px 0;
+        }
+        
+        .bar-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        .bar-container {
+            background: #e0e0e0;
+            border-radius: 10px;
+            height: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            color: white;
+            font-weight: bold;
+            transition: width 1s ease;
+        }
+        
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .summary-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            table {
+                font-size: 0.85em;
+            }
+            
+            th, td {
+                padding: 10px;
+            }
+        }
+        
+        .icon {
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 PG-Strom Benchmark Results</h1>
+            <div class="subtitle">CPU vs GPU Performance Comparison</div>
+            <div class="timestamp">EOF_HTML
+    
+    echo "Generated on ${timestamp}" >> "${HTML_REPORT}"
+    
+    cat >> "${HTML_REPORT}" << 'EOF_HTML'
+</div>
+        </div>
+        
+        <div class="content">
+            <div class="summary-cards">
+                <div class="card">
+                    <h3>Average Speedup</h3>
+                    <div class="value">15.74<span class="unit">x</span></div>
+                </div>
+                <div class="card">
+                    <h3>Max Speedup</h3>
+                    <div class="value">100.21<span class="unit">x</span></div>
+                </div>
+                <div class="card">
+                    <h3>Tests Run</h3>
+                    <div class="value">30</div>
+                </div>
+                <div class="card">
+                    <h3>Datasets</h3>
+                    <div class="value">5</div>
+                </div>
+            </div>
+            
+            <h2 class="section-title">📊 Detailed Results</h2>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test Name</th>
+                            <th>CPU Time (s)</th>
+                            <th>GPU Time (s)</th>
+                            <th>CPU Usage</th>
+                            <th>GPU Usage</th>
+                            <th>Speedup</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                            <tr class="dataset-header">
+                                <td colspan="9">=== SMALL (100000 rows) ===</td>
+                            </tr>
+                        <tr>
+                            <td>Simple Aggregation</td>
+                            <td class="cpu-time">0320.017</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Math</td>
+                            <td class="cpu-time">0320.054</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Filtering</td>
+                            <td class="cpu-time">0320.059</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Window Functions</td>
+                            <td class="cpu-time">0320.014</td>
+                            <td class="gpu-time">0320.014</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>String Operations</td>
+                            <td class="cpu-time">0320.159</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>CLOB Operations</td>
+                            <td class="cpu-time">0320.282</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                            <tr class="dataset-header">
+                                <td colspan="9">=== MEDIUM (1000000 rows) ===</td>
+                            </tr>
+                        <tr>
+                            <td>Simple Aggregation</td>
+                            <td class="cpu-time">0320.085</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Math</td>
+                            <td class="cpu-time">0320.356</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Filtering</td>
+                            <td class="cpu-time">0320.193</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Window Functions</td>
+                            <td class="cpu-time">0320.064</td>
+                            <td class="gpu-time">0320.036</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>String Operations</td>
+                            <td class="cpu-time">03201.311</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>CLOB Operations</td>
+                            <td class="cpu-time">03202.527</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                            <tr class="dataset-header">
+                                <td colspan="9">=== LARGE (10000000 rows) ===</td>
+                            </tr>
+                        <tr>
+                            <td>Simple Aggregation</td>
+                            <td class="cpu-time">0320.694</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.10x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Math</td>
+                            <td class="cpu-time">03203.368</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Filtering</td>
+                            <td class="cpu-time">03203.102</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>Window Functions</td>
+                            <td class="cpu-time">0320.150</td>
+                            <td class="gpu-time">0320.114</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>String Operations</td>
+                            <td class="cpu-time">032012.943</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">10.00x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>CLOB Operations</td>
+                            <td class="cpu-time">032028.135</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">10.00x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                            <tr class="dataset-header">
+                                <td colspan="9">=== XLARGE (100000000 rows) ===</td>
+                            </tr>
+                        <tr>
+                            <td>Simple Aggregation</td>
+                            <td class="cpu-time">032010.338</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">10.00x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Math</td>
+                            <td class="cpu-time">032035.505</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">10.01x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Filtering</td>
+                            <td class="cpu-time">032041.415</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">10.01x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>Window Functions</td>
+                            <td class="cpu-time">032010.469</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">10.00x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>String Operations</td>
+                            <td class="cpu-time">0320141.105</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">100.04x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>CLOB Operations</td>
+                            <td class="cpu-time">03200</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                            <tr class="dataset-header">
+                                <td colspan="9">=== XXLARGE (1000000000 rows) ===</td>
+                            </tr>
+                        <tr>
+                            <td>Simple Aggregation</td>
+                            <td class="cpu-time">0320146.968</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">100.04x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Math</td>
+                            <td class="cpu-time">0320381.108</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">100.11x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>Complex Filtering</td>
+                            <td class="cpu-time">0320672.583</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">100.21x</td>
+                            <td><span class="status-excellent"><span class="icon">🚀</span>Excellent</span></td>
+                        </tr>
+                        <tr>
+                            <td>Window Functions</td>
+                            <td class="cpu-time">0320233.732</td>
+                            <td class="gpu-time">0320244.522</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">.99x</td>
+                            <td><span class="status-slower"><span class="icon">⚠</span>Slower</span></td>
+                        </tr>
+                        <tr>
+                            <td>String Operations</td>
+                            <td class="cpu-time">03200</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                        <tr>
+                            <td>CLOB Operations</td>
+                            <td class="cpu-time">03200</td>
+                            <td class="gpu-time">03200</td>
+                            <td style="color:#3b82f6;font-weight:600;">🔥 -%</td>
+                            <td style="color:#10b981;font-weight:600;">⚡ -%</td>
+                            <td class="speedup">1.00x</td>
+                            <td><span class="status-similar"><span class="icon">≈</span>Similar</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin:20px 0 40px 0;">
+                <strong>Legend:</strong>
+                <span style="margin-left:20px;color:#3b82f6;font-weight:600;">🔥 High CPU Usage</span>
+                <span style="margin-left:20px;color:#10b981;font-weight:600;">⚡ High GPU Usage</span>
+                <span style="margin-left:20px;color:#888;">Low = minimal utilization for that mode</span>
+            </div>
+            
+            <h2 class="section-title">📈 Performance Visualization</h2>
+            
+            <div class="chart-container">
+                <h3 style="margin-bottom: 20px; color: #333;">Speedup Comparison</h3>
+                <div class="bar-chart">
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Simple Aggregation</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Math</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Filtering</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Window Functions</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>String Operations</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>CLOB Operations</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Simple Aggregation</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Math</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Filtering</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Window Functions</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>String Operations</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>CLOB Operations</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Simple Aggregation</span>
+                            <span>.10x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 1.00%">.10x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Math</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Filtering</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Window Functions</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>String Operations</span>
+                            <span>10.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100.00%">10.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>CLOB Operations</span>
+                            <span>10.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100.00%">10.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Simple Aggregation</span>
+                            <span>10.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100.00%">10.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Math</span>
+                            <span>10.01x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100.00%">10.01x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Filtering</span>
+                            <span>10.01x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100.00%">10.01x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Window Functions</span>
+                            <span>10.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100.00%">10.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>String Operations</span>
+                            <span>100.04x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100%">100.04x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>CLOB Operations</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Simple Aggregation</span>
+                            <span>100.04x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100%">100.04x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Math</span>
+                            <span>100.11x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100%">100.11x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Complex Filtering</span>
+                            <span>100.21x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 100%">100.21x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>Window Functions</span>
+                            <span>.99x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 9.00%">.99x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>String Operations</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                    <div class="bar-item">
+                        <div class="bar-label">
+                            <span>CLOB Operations</span>
+                            <span>1.00x</span>
+                        </div>
+                        <div class="bar-container">
+                            <div class="bar-fill" style="width: 10.00%">1.00x</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>Generated by PG-Strom Benchmark Script</p>
+            <p style="margin-top: 10px;">
+                <a href="https://github.com/heterodb/pg-strom" target="_blank">PG-Strom Project</a>
+            </p>
+        </div>
+    </div>
+</body>
+</html>

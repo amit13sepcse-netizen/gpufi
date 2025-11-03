@@ -2,15 +2,12 @@
 cuda-keyring_*.deb
 cuda-keyring_*.deb.*
 
-# Log files
-*.log
+# Installation/download logs
 wget-log*
 *.checkpoint
 *.state
-
-# Data directory (may contain large datasets)
-data/
-reports/
+install_pgstrom.log
+reinstall.log
 
 # Metadata
 .metadata/
