@@ -1,0 +1,40 @@
+# CUDA keyring packages (can be re-downloaded)
+cuda-keyring_*.deb
+cuda-keyring_*.deb.*
+
+# Log files
+*.log
+wget-log*
+*.checkpoint
+*.state
+
+# Data directory (may contain large datasets)
+data/
+reports/
+
+# Metadata
+.metadata/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# System files
+.DS_Store
+Thumbs.db
