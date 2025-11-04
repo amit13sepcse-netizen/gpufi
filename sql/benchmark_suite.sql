@@ -198,6 +198,12 @@ BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
   END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'off', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'on', true);
+  END IF;
 END$$;
 EXPLAIN ANALYZE
 SELECT category, COUNT(*) cnt, AVG(value1) avg1, AVG(value2) avg2, SUM(value3) sum3,
@@ -212,6 +218,12 @@ DO $$
 BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'off', true);
   END IF;
 END$$;
 
@@ -238,6 +250,12 @@ BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
   END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'off', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'on', true);
+  END IF;
 END$$;
 EXPLAIN ANALYZE
 SELECT category, COUNT(*) cnt,
@@ -260,6 +278,12 @@ BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'on', true);
   END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'off', true);
+  END IF;
 END$$;
 
 -- 3) Complex Filtering
@@ -277,6 +301,12 @@ BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
   END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'off', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'on', true);
+  END IF;
 END$$;
 EXPLAIN ANALYZE
 SELECT COUNT(*), AVG(salary), MAX(bonus), AVG(commission), SUM(training_hours),
@@ -290,6 +320,12 @@ DO $$
 BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'off', true);
   END IF;
 END$$;
 
@@ -308,6 +344,12 @@ DO $$
 BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'off', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'on', true);
   END IF;
 END$$;
 EXPLAIN ANALYZE
@@ -345,6 +387,12 @@ BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'on', true);
   END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'off', true);
+  END IF;
 END$$;
 
 -- 6) CLOB Operations
@@ -364,6 +412,12 @@ BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
   END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'off', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'on', true);
+  END IF;
 END$$;
 EXPLAIN ANALYZE
 SELECT city, COUNT(*) total, AVG(salary) avg_salary,
@@ -379,6 +433,12 @@ DO $$
 BEGIN
   IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
     PERFORM set_config('pg_strom.enable_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.enable_partitionwise_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_partitionwise_gpupreagg', 'on', true);
+  END IF;
+  IF current_setting('pg_strom.cpu_fallback', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.cpu_fallback', 'off', true);
   END IF;
 END$$;
 
