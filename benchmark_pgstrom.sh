@@ -67,6 +67,7 @@ while [[ $# -gt 0 ]]; do
             echo "  SMALL             100,000 rows (100K)"
             echo "  MEDIUM            1,000,000 rows (1M)"
             echo "  LARGE             10,000,000 rows (10M)"
+            echo "  HALF_BILLION      500,000,000 rows (500M)"
             echo "  XLARGE            100,000,000 rows (100M)"
             echo "  XXLARGE           1,000,000,000 rows (1B)"
             echo ""
@@ -80,8 +81,11 @@ while [[ $# -gt 0 ]]; do
             echo "  # Run large datasets (may take hours)"
             echo "  RUN_SIZES='LARGE XLARGE' sudo ./benchmark_pgstrom.sh"
             echo ""
+            echo "  # Run comprehensive large datasets (1M, 500M, 1B)"
+            echo "  RUN_SIZES='MEDIUM HALF_BILLION XXLARGE' sudo ./benchmark_pgstrom.sh"
+            echo ""
             echo "  # Run all datasets including 1 billion rows (may take many hours)"
-            echo "  RUN_SIZES='SMALL MEDIUM LARGE XLARGE XXLARGE' sudo ./benchmark_pgstrom.sh"
+            echo "  RUN_SIZES='SMALL MEDIUM LARGE XLARGE HALF_BILLION XXLARGE' sudo ./benchmark_pgstrom.sh"
             exit 0
             ;;
         *)
@@ -132,6 +136,7 @@ MEDIUM_SIZE=1000000        # 1M rows
 LARGE_SIZE=10000000        # 10M rows
 XLARGE_SIZE=100000000      # 100M rows
 XXLARGE_SIZE=1000000000    # 1B rows (1 billion)
+HALF_BILLION_SIZE=500000000 # 500M rows (half billion)
 
 # Which dataset sizes to run (can be overridden by environment variable)
 # Example: RUN_SIZES="SMALL MEDIUM LARGE" ./benchmark_pgstrom.sh
@@ -1712,6 +1717,10 @@ main() {
                 row_count=$LARGE_SIZE
                 suffix="large"
                 ;;
+            HALF_BILLION)
+                row_count=$HALF_BILLION_SIZE
+                suffix="half_billion"
+                ;;
             XLARGE)
                 row_count=$XLARGE_SIZE
                 suffix="xlarge"
@@ -1735,6 +1744,10 @@ main() {
         if [[ "$size" == "XLARGE" ]]; then
             print_warn "⚠️  XLARGE dataset (100M rows) will take significant time and disk space!"
             print_info "Estimated time: 5-15 minutes per dataset"
+        elif [[ "$size" == "HALF_BILLION" ]]; then
+            print_warn "⚠️  HALF_BILLION dataset (500M rows) will take long time and substantial disk space!"
+            print_info "Estimated time: ~30-90 minutes per dataset, depending on hardware"
+            print_info "Required disk space: tens of GB"
         elif [[ "$size" == "XXLARGE" ]]; then
             print_warn "⚠️  XXLARGE dataset (1B rows) will take VERY long time and significant disk space!"
             print_info "Estimated time: 1-3 hours per dataset"

@@ -45,8 +45,10 @@ DB_USER=myuser ./benchmark_pgstrom.sh
 
 ### 1. Data Generation
 - **Small dataset**: 100,000 rows
-- **Medium dataset**: 1,000,000 rows
-- **Large dataset**: 10,000,000 rows (optional, disabled by default)
+- **Medium dataset**: 1,000,000 rows (1M)
+- **Large dataset**: 10,000,000 rows (10M)
+- **Half-billion dataset**: 500,000,000 rows (500M)
+- **Billion dataset**: 1,000,000,000 rows (1B)
 
 ### 2. Table Types
 
@@ -129,6 +131,9 @@ Edit `benchmark_pgstrom.sh` and modify:
 SMALL_SIZE=100000      # 100K rows
 MEDIUM_SIZE=1000000    # 1M rows
 LARGE_SIZE=10000000    # 10M rows
+# Enable larger scales
+HALF_BILLION_SIZE=500000000  # 500M rows
+XXLARGE_SIZE=1000000000      # 1B rows
 ```
 
 ### Enable Large Dataset
@@ -138,6 +143,23 @@ In the `main()` function, add `"LARGE"` to the test loop:
 ```bash
 for size in "SMALL" "MEDIUM" "LARGE"; do
 ```
+
+### Generate a comprehensive report (1M, 500M, 1B)
+
+The HTML report produced by the script consolidates all scenarios you include in `RUN_SIZES`. To generate a single, comprehensive report covering 1 million, half-billion, and 1 billion rows, run:
+
+```bash
+RUN_SIZES='MEDIUM HALF_BILLION XXLARGE' \
+MONITOR_GPU=1 \
+sudo ./benchmark_pgstrom.sh
+```
+
+This will:
+- Populate and benchmark the 1M, 500M, and 1B datasets
+- Produce a single HTML report under `data/benchmark_report_*.html`
+- Include speedups, average CPU/GPU utilization, and per-test breakdowns
+
+Tip: These sizes are heavy. Ensure you have sufficient disk (100GB+) and time.
 
 ### Add Custom Tests
 
