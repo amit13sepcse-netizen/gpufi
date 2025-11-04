@@ -113,9 +113,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DATA_DIR="${PROJECT_ROOT}/data"
 mkdir -p "$DATA_DIR"
-BENCHMARK_RESULTS="${DATA_DIR}/benchmark_results_$(date +%Y%m%d_%H%M%S).log"
-HTML_REPORT="${DATA_DIR}/benchmark_report_$(date +%Y%m%d_%H%M%S).html"
-QUERY_AUDIT_LOG="${DATA_DIR}/query_audit_$(date +%Y%m%d_%H%M%S).log"
+# Allow overriding output locations via env vars; default to timestamped files in data/
+BENCHMARK_RESULTS="${BENCHMARK_RESULTS:-${DATA_DIR}/benchmark_results_$(date +%Y%m%d_%H%M%S).log}"
+HTML_REPORT="${HTML_REPORT:-${DATA_DIR}/benchmark_report_$(date +%Y%m%d_%H%M%S).html}"
+QUERY_AUDIT_LOG="${QUERY_AUDIT_LOG:-${DATA_DIR}/query_audit_$(date +%Y%m%d_%H%M%S).log}"
 
 # Initialize query audit log
 touch "$QUERY_AUDIT_LOG"
@@ -316,6 +317,11 @@ DROP TABLE IF EXISTS bench_mixed CASCADE;
 DROP TABLE IF EXISTS bench_aggregation CASCADE;
 DROP TABLE IF EXISTS bench_join_a CASCADE;
 DROP TABLE IF EXISTS bench_join_b CASCADE;
+DROP TABLE IF EXISTS bench_tree_small CASCADE;
+DROP TABLE IF EXISTS bench_tree_medium CASCADE;
+DROP TABLE IF EXISTS bench_tree_large CASCADE;
+DROP TABLE IF EXISTS bench_tree_xlarge CASCADE;
+DROP TABLE IF EXISTS bench_tree_xxlarge CASCADE;
 EOF
 )
     
@@ -358,6 +364,11 @@ DROP TABLE IF EXISTS bench_mixed CASCADE;
 DROP TABLE IF EXISTS bench_aggregation CASCADE;
 DROP TABLE IF EXISTS bench_join_a CASCADE;
 DROP TABLE IF EXISTS bench_join_b CASCADE;
+DROP TABLE IF EXISTS bench_tree_small CASCADE;
+DROP TABLE IF EXISTS bench_tree_medium CASCADE;
+DROP TABLE IF EXISTS bench_tree_large CASCADE;
+DROP TABLE IF EXISTS bench_tree_xlarge CASCADE;
+DROP TABLE IF EXISTS bench_tree_xxlarge CASCADE;
 EOF
 )
     
@@ -514,6 +525,78 @@ create_test_tables() {
     CREATE INDEX idx_mixed_age_${table_suffix} ON bench_mixed_${table_suffix}(age);
     CREATE INDEX idx_mixed_salary_${table_suffix} ON bench_mixed_${table_suffix}(salary);"; then
         print_error "Failed to create indexes"
+        return 1
+    fi
+
+    # Join tables (A references numeric id; B references category/department)
+    print_info "Creating join helper tables for ${table_suffix}..."
+    if ! execute_timed_sql "Create bench_join_a" "
+    CREATE TABLE bench_join_a_${table_suffix} (
+        id BIGSERIAL PRIMARY KEY,
+        ref_numeric_id BIGINT,
+        dept TEXT,
+        amount NUMERIC(12,2),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );"; then
+        print_error "Failed to create bench_join_a_${table_suffix}"
+        return 1
+    fi
+    if ! execute_timed_sql "Create bench_join_b" "
+    CREATE TABLE bench_join_b_${table_suffix} (
+        category INTEGER,
+        dept TEXT,
+        weight NUMERIC(12,2),
+        descr TEXT
+    );"; then
+        print_error "Failed to create bench_join_b_${table_suffix}"
+        return 1
+    fi
+
+    print_info "Inserting rows into join tables..."
+    if ! execute_timed_sql "Insert bench_join_a" "
+    INSERT INTO bench_join_a_${table_suffix} (ref_numeric_id, dept, amount)
+    SELECT n.id,
+           m.department,
+           (random()*10000)::NUMERIC
+    FROM bench_numeric_${table_suffix} n
+    JOIN bench_mixed_${table_suffix} m ON m.id = n.id
+    ;"; then
+        print_error "Failed to insert into bench_join_a_${table_suffix}"
+        return 1
+    fi
+    if ! execute_timed_sql "Insert bench_join_b" "
+    INSERT INTO bench_join_b_${table_suffix} (category, dept, weight, descr)
+    SELECT ((random()*9)::INT)+1 AS category,
+           d AS dept,
+           (random()*100)::NUMERIC,
+           'Dept weight info '
+    FROM (VALUES ('Engineering'),('Sales'),('Marketing'),('HR'),('Operations')) AS t(d)
+    CROSS JOIN generate_series(1, 100) gs;"; then
+        print_error "Failed to insert into bench_join_b_${table_suffix}"
+        return 1
+    fi
+
+    # Small hierarchy table for recursive query tests (bounded size)
+    print_info "Creating recursive hierarchy table bench_tree_${table_suffix}..."
+    if ! execute_timed_sql "Create bench_tree" "
+    CREATE TABLE bench_tree_${table_suffix} (
+        id BIGINT PRIMARY KEY,
+        parent_id BIGINT,
+        name TEXT
+    );"; then
+        print_error "Failed to create bench_tree_${table_suffix}"
+        return 1
+    fi
+    if ! execute_timed_sql "Populate bench_tree" "
+    WITH RECURSIVE seed AS (
+        SELECT 1 AS id, NULL::BIGINT AS parent_id, 'root'::TEXT AS name
+        UNION ALL
+        SELECT id+1, CASE WHEN id < 50 THEN 1 ELSE ((random()*49)::INT)+2 END, 'node_'||id
+        FROM generate_series(1, LEAST(100000, ${row_count})) AS id
+    )
+    INSERT INTO bench_tree_${table_suffix} (id, parent_id, name)
+    SELECT id, parent_id, name FROM seed;"; then
+        print_error "Failed to populate bench_tree_${table_suffix}"
         return 1
     fi
     
@@ -840,6 +923,69 @@ benchmark_select() {
         TEST_NAMES+=("CLOB Operations")
         CPU_TIMES+=("$cpu_time_6")
         GPU_TIMES+=("$gpu_time_6")
+        SPEEDUPS+=("$speedup")
+    fi
+
+    # Test 7: Inner join aggregation (GpuJoin candidate)
+    print_info "Test 7: Inner join across numeric/join tables with aggregation"
+    log_resource_usage "Join Aggregation" "CPU-start"
+    local cpu_time_7=$(execute_explain_analyze "Join Aggregation (CPU)" \
+        "SELECT n.category, ja.dept, COUNT(*) AS cnt, AVG(n.value3) AS avg_v3\n         FROM bench_numeric_${table_suffix} n\n         JOIN bench_join_a_${table_suffix} ja ON ja.ref_numeric_id = n.id\n         JOIN bench_join_b_${table_suffix} jb ON jb.category = n.category AND jb.dept = ja.dept\n         WHERE n.value1 > 1000 AND n.value6 < 9000\n         GROUP BY n.category, ja.dept;" "off")
+    log_resource_usage "Join Aggregation" "CPU-end"
+    log_resource_usage "Join Aggregation" "GPU-start"
+    local gpu_time_7=$(execute_explain_analyze "Join Aggregation (GPU)" \
+        "SELECT n.category, ja.dept, COUNT(*) AS cnt, AVG(n.value3) AS avg_v3\n         FROM bench_numeric_${table_suffix} n\n         JOIN bench_join_a_${table_suffix} ja ON ja.ref_numeric_id = n.id\n         JOIN bench_join_b_${table_suffix} jb ON jb.category = n.category AND jb.dept = ja.dept\n         WHERE n.value1 > 1000 AND n.value6 < 9000\n         GROUP BY n.category, ja.dept;" "on")
+    log_resource_usage "Join Aggregation" "GPU-end"
+    if [ "$gpu_time_7" != "0" ] && [ "$cpu_time_7" != "0" ]; then
+        cpu_time_7=$(echo "$cpu_time_7" | tr -cd '0-9.')
+        gpu_time_7=$(echo "$gpu_time_7" | tr -cd '0-9.')
+        local speedup=$(echo "scale=2; $cpu_time_7 / $gpu_time_7" | bc)
+        print_result "Speedup for join aggregation: ${speedup}x"
+        TEST_NAMES+=("Join Aggregation")
+        CPU_TIMES+=("$cpu_time_7")
+        GPU_TIMES+=("$gpu_time_7")
+        SPEEDUPS+=("$speedup")
+    fi
+
+    # Test 8: Correlated subquery
+    print_info "Test 8: Correlated subquery EXISTS"
+    log_resource_usage "Correlated Subquery" "CPU-start"
+    local cpu_time_8=$(execute_explain_analyze "Correlated (CPU)" \
+        "SELECT m.department, AVG(m.salary)\n         FROM bench_mixed_${table_suffix} m\n         WHERE EXISTS (SELECT 1 FROM bench_numeric_${table_suffix} n\n                       WHERE n.category = m.rating AND n.value1 > 8000)\n         GROUP BY m.department;" "off")
+    log_resource_usage "Correlated Subquery" "CPU-end"
+    log_resource_usage "Correlated Subquery" "GPU-start"
+    local gpu_time_8=$(execute_explain_analyze "Correlated (GPU)" \
+        "SELECT m.department, AVG(m.salary)\n         FROM bench_mixed_${table_suffix} m\n         WHERE EXISTS (SELECT 1 FROM bench_numeric_${table_suffix} n\n                       WHERE n.category = m.rating AND n.value1 > 8000)\n         GROUP BY m.department;" "on")
+    log_resource_usage "Correlated Subquery" "GPU-end"
+    if [ "$gpu_time_8" != "0" ] && [ "$cpu_time_8" != "0" ]; then
+        cpu_time_8=$(echo "$cpu_time_8" | tr -cd '0-9.')
+        gpu_time_8=$(echo "$gpu_time_8" | tr -cd '0-9.')
+        local speedup=$(echo "scale=2; $cpu_time_8 / $gpu_time_8" | bc)
+        print_result "Speedup for correlated subquery: ${speedup}x"
+        TEST_NAMES+=("Correlated Subquery EXISTS")
+        CPU_TIMES+=("$cpu_time_8")
+        GPU_TIMES+=("$gpu_time_8")
+        SPEEDUPS+=("$speedup")
+    fi
+
+    # Test 9: Hierarchical query (CONNECT BY analog) using recursive CTE
+    print_info "Test 9: Recursive CTE hierarchy traversal (CONNECT BY analog)"
+    log_resource_usage "Recursive CTE" "CPU-start"
+    local cpu_time_9=$(execute_explain_analyze "Recursive (CPU)" \
+        "WITH RECURSIVE tree AS (\n           SELECT id, parent_id, name, 1 AS depth FROM bench_tree_${table_suffix} WHERE parent_id IS NULL\n           UNION ALL\n           SELECT t.id, t.parent_id, t.name, tree.depth+1\n           FROM bench_tree_${table_suffix} t\n           JOIN tree ON t.parent_id = tree.id\n         )\n         SELECT MAX(depth) AS max_depth, COUNT(*) AS total\n         FROM tree;" "off")
+    log_resource_usage "Recursive CTE" "CPU-end"
+    log_resource_usage "Recursive CTE" "GPU-start"
+    local gpu_time_9=$(execute_explain_analyze "Recursive (GPU)" \
+        "WITH RECURSIVE tree AS (\n           SELECT id, parent_id, name, 1 AS depth FROM bench_tree_${table_suffix} WHERE parent_id IS NULL\n           UNION ALL\n           SELECT t.id, t.parent_id, t.name, tree.depth+1\n           FROM bench_tree_${table_suffix} t\n           JOIN tree ON t.parent_id = tree.id\n         )\n         SELECT MAX(depth) AS max_depth, COUNT(*) AS total\n         FROM tree;" "on")
+    log_resource_usage "Recursive CTE" "GPU-end"
+    if [ "$gpu_time_9" != "0" ] && [ "$cpu_time_9" != "0" ]; then
+        cpu_time_9=$(echo "$cpu_time_9" | tr -cd '0-9.')
+        gpu_time_9=$(echo "$gpu_time_9" | tr -cd '0-9.')
+        local speedup=$(echo "scale=2; $cpu_time_9 / $gpu_time_9" | bc)
+        print_result "Speedup for recursive CTE: ${speedup}x"
+        TEST_NAMES+=("Recursive CTE (hierarchy)")
+        CPU_TIMES+=("$cpu_time_9")
+        GPU_TIMES+=("$gpu_time_9")
         SPEEDUPS+=("$speedup")
     fi
     
@@ -1525,7 +1671,13 @@ EOF
 EOF_HTML
     
     print_success "HTML report generated: ${HTML_REPORT}"
-    print_info "Open in browser: file://$(pwd)/${HTML_REPORT}"
+    print_info "Open in browser: file://${HTML_REPORT}"
+    # Optionally keep a single final report by removing prior timestamped ones
+    if [[ "${KEEP_SINGLE_REPORT:-0}" == "1" ]]; then
+        # Remove any timestamped reports in DATA_DIR, excluding the current file if it happens to be there
+        find "${DATA_DIR}" -maxdepth 1 -type f -name 'benchmark_report_*.html' \
+            ! -path "${HTML_REPORT}" -delete 2>/dev/null || true
+    fi
 }
 
 # Generate summary report
