@@ -199,6 +199,14 @@ FROM bench_numeric_:suffix
 WHERE value1 > 5000 AND value6 < 8000
 GROUP BY category;
 
+-- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
+DO $$
+BEGIN
+  IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+END$$;
+
 -- 2) Complex Math
 SET pg_strom.enabled = off; EXPLAIN ANALYZE
 SELECT category, COUNT(*) cnt,
@@ -230,6 +238,14 @@ WHERE value1 > 1000 AND value2 < 9000 AND value11 > 2000
 GROUP BY category
 HAVING COUNT(*) > 100;
 
+-- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
+DO $$
+BEGIN
+  IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+END$$;
+
 -- 3) Complex Filtering
 SET pg_strom.enabled = off; EXPLAIN ANALYZE
 SELECT COUNT(*), AVG(salary), MAX(bonus), AVG(commission), SUM(training_hours),
@@ -244,6 +260,14 @@ SELECT COUNT(*), AVG(salary), MAX(bonus), AVG(commission), SUM(training_hours),
 FROM bench_mixed_:suffix
 WHERE age BETWEEN 30 AND 50 AND salary > 50000 AND is_active = true AND score > 50
   AND rating >= 3 AND years_exp > 2 AND project_count > 5;
+
+-- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
+DO $$
+BEGIN
+  IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+END$$;
 
 -- 4) Window Functions (limited rows)
 SET pg_strom.enabled = off; EXPLAIN ANALYZE
@@ -283,6 +307,14 @@ FROM bench_mixed_:suffix
 WHERE is_active = true AND rating >= 3
 GROUP BY department;
 
+-- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
+DO $$
+BEGIN
+  IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+END$$;
+
 -- 6) CLOB Operations
 SET pg_strom.enabled = off; EXPLAIN ANALYZE
 SELECT city, COUNT(*) total, AVG(salary) avg_salary,
@@ -302,6 +334,14 @@ FROM bench_mixed_:suffix
 WHERE LENGTH(description) > 100 AND profile_summary IS NOT NULL
 GROUP BY city;
 
+-- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
+DO $$
+BEGIN
+  IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+END$$;
+
 -- 7) Join Aggregation (GpuJoin candidate)
 SET pg_strom.enabled = off; EXPLAIN ANALYZE
 SELECT n.category, ja.dept, COUNT(*) cnt, AVG(n.value3) avg_v3
@@ -318,6 +358,14 @@ JOIN bench_join_a_:suffix ja ON ja.ref_numeric_id = n.id
 JOIN bench_join_b_:suffix jb ON jb.category = n.category AND jb.dept = ja.dept
 WHERE n.value1 > 1000 AND n.value6 < 9000
 GROUP BY n.category, ja.dept;
+
+-- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
+DO $$
+BEGIN
+  IF current_setting('pg_strom.enable_gpupreagg', true) IS NOT NULL THEN
+    PERFORM set_config('pg_strom.enable_gpupreagg', 'off', true);
+  END IF;
+END$$;
 
 -- 8) Correlated Subquery
 SET pg_strom.enabled = off; EXPLAIN ANALYZE
