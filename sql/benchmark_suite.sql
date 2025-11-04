@@ -191,7 +191,7 @@ FROM bench_numeric_:suffix
 WHERE value1 > 5000 AND value6 < 8000
 GROUP BY category;
 
-SET pg_strom.enabled = on;
+SET pg_strom.enabled = off; -- hybrid: disable GPU for this aggregate-heavy query (pg_strom v6.0 fcount issue)
 -- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
 DO $$
 BEGIN
@@ -243,7 +243,7 @@ WHERE value1 > 1000 AND value2 < 9000 AND value11 > 2000
 GROUP BY category
 HAVING COUNT(*) > 100;
 
-SET pg_strom.enabled = on;
+SET pg_strom.enabled = off; -- hybrid: disable GPU for this aggregate-heavy query (pg_strom v6.0 fcount issue)
 -- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
 DO $$
 BEGIN
@@ -294,7 +294,7 @@ FROM bench_mixed_:suffix
 WHERE age BETWEEN 30 AND 50 AND salary > 50000 AND is_active = true AND score > 50
   AND rating >= 3 AND years_exp > 2 AND project_count > 5;
 
-SET pg_strom.enabled = on;
+SET pg_strom.enabled = off; -- hybrid: disable GPU for this aggregate-heavy query (pg_strom v6.0 fcount issue)
 -- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
 DO $$
 BEGIN
@@ -338,7 +338,7 @@ FROM bench_numeric_:suffix
 WHERE value1 > 3000
 LIMIT 10000;
 
-SET pg_strom.enabled = on;
+SET pg_strom.enabled = off; -- hybrid: disable GPU for this aggregate-heavy query (pg_strom v6.0 fcount issue)
 -- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
 DO $$
 BEGIN
@@ -405,7 +405,7 @@ FROM bench_mixed_:suffix
 WHERE LENGTH(description) > 100 AND profile_summary IS NOT NULL
 GROUP BY city;
 
-SET pg_strom.enabled = on;
+SET pg_strom.enabled = off; -- hybrid: disable GPU for this aggregate-heavy query (pg_strom v6.0 fcount issue)
 -- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
 DO $$
 BEGIN
@@ -451,7 +451,7 @@ JOIN bench_join_b_:suffix jb ON jb.category = n.category AND jb.dept = ja.dept
 WHERE n.value1 > 1000 AND n.value6 < 9000
 GROUP BY n.category, ja.dept;
 
-SET pg_strom.enabled = on;
+SET pg_strom.enabled = off; -- hybrid: disable GPU for this aggregate-heavy query (pg_strom v6.0 fcount issue)
 -- Disable GPU pre-aggregation if supported to avoid fcount(bigint) error
 DO $$
 BEGIN
